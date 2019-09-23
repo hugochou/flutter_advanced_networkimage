@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'dart:typed_data';
-import 'dart:ui' as ui show Codec, hashValues;
+import 'dart:ui' as ui;
 
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
@@ -17,6 +17,8 @@ typedef Future<Uint8List> ImageProcessing(Uint8List data);
 class AdvancedNetworkImage extends ImageProvider<AdvancedNetworkImage> {
   AdvancedNetworkImage(
     this.url, {
+    this.targetHeight,
+    this.targetWidth,
     this.scale: 1.0,
     this.header,
     this.useDiskCache: false,
@@ -38,7 +40,7 @@ class AdvancedNetworkImage extends ImageProvider<AdvancedNetworkImage> {
     this.printError = false,
     this.skipRetryStatusCode,
   })  : assert(url != null),
-        assert(scale != null),
+        assert(scale != null || targetHeight != null || targetWidth != null),
         assert(useDiskCache != null),
         assert(retryLimit != null),
         assert(retryDuration != null),
@@ -49,6 +51,10 @@ class AdvancedNetworkImage extends ImageProvider<AdvancedNetworkImage> {
 
   /// The URL from which the image will be fetched.
   final String url;
+
+  /// 修改图片显示尺寸，减少内存缓存占用
+  final int targetHeight;
+  final int targetWidth;
 
   /// The scale to place in the [ImageInfo] object of the image.
   final double scale;
@@ -145,9 +151,11 @@ class AdvancedNetworkImage extends ImageProvider<AdvancedNetworkImage> {
 
   @override
   ImageStreamCompleter load(AdvancedNetworkImage key) {
+    var scale = key.scale;
+    if (key.targetHeight != null || key.targetWidth != null) scale = 1.0;
     return MultiFrameImageStreamCompleter(
       codec: _loadAsync(key),
-      scale: key.scale,
+      scale: scale,
       informationCollector: () sync* {
         yield DiagnosticsProperty<ImageProvider>('Image provider', this);
         yield DiagnosticsProperty<AdvancedNetworkImage>('Image key', key);
@@ -160,6 +168,12 @@ class AdvancedNetworkImage extends ImageProvider<AdvancedNetworkImage> {
 
     String uId = uid(key.url);
 
+    // 是否需要改变显示尺寸
+    var needResize = true;
+    if (key.targetWidth == null && key.targetHeight == null) {
+      needResize = false;
+    }
+
     if (useDiskCache) {
       try {
         Uint8List _diskCache = await _loadFromDiskCache(key, uId);
@@ -167,8 +181,14 @@ class AdvancedNetworkImage extends ImageProvider<AdvancedNetworkImage> {
           if (key.postProcessing != null)
             _diskCache = (await key.postProcessing(_diskCache)) ?? _diskCache;
           if (key.loadedCallback != null) key.loadedCallback();
-          return await PaintingBinding.instance
-              .instantiateImageCodec(_diskCache);
+
+          if (needResize) {
+            // 修改图片显示尺寸，减少内存缓存占用
+            return await ui.instantiateImageCodec(_diskCache, targetHeight: this.targetHeight,
+                targetWidth: this.targetWidth);
+          } else {
+            return await PaintingBinding.instance.instantiateImageCodec(_diskCache);
+          }
         }
       } catch (e) {
         if (key.printError) debugPrint(e.toString());
@@ -189,19 +209,37 @@ class AdvancedNetworkImage extends ImageProvider<AdvancedNetworkImage> {
         if (key.postProcessing != null)
           imageData = (await key.postProcessing(imageData)) ?? imageData;
         if (key.loadedCallback != null) key.loadedCallback();
-        return await PaintingBinding.instance.instantiateImageCodec(imageData);
+
+        if (needResize) {
+          // 修改图片显示尺寸，减少内存缓存占用
+          return await ui.instantiateImageCodec(imageData, targetHeight: this.targetHeight,
+              targetWidth: this.targetWidth);
+        } else {
+          return await PaintingBinding.instance.instantiateImageCodec(imageData);
+        }
       }
     }
 
     if (key.loadFailedCallback != null) key.loadFailedCallback();
     if (key.fallbackAssetImage != null) {
       ByteData imageData = await rootBundle.load(key.fallbackAssetImage);
-      return await PaintingBinding.instance
-          .instantiateImageCodec(imageData.buffer.asUint8List());
+
+      if (needResize) {
+        // 修改图片显示尺寸，减少内存缓存占用
+        return await ui.instantiateImageCodec(imageData.buffer.asUint8List(), targetHeight: this.targetHeight,
+            targetWidth: this.targetWidth);
+      } else {
+        return await PaintingBinding.instance.instantiateImageCodec(imageData.buffer.asUint8List());
+      }
     }
     if (key.fallbackImage != null)
-      return await PaintingBinding.instance
-          .instantiateImageCodec(key.fallbackImage);
+      if (needResize) {
+        // 修改图片显示尺寸，减少内存缓存占用
+        return await ui.instantiateImageCodec(key.fallbackImage, targetHeight: this.targetHeight,
+            targetWidth: this.targetWidth);
+      } else {
+        return await PaintingBinding.instance.instantiateImageCodec(key.fallbackImage);
+      }
 
     return Future.error(StateError('Failed to load $url.'));
   }
