@@ -175,8 +175,8 @@ class AdvancedNetworkImage extends ImageProvider<AdvancedNetworkImage> {
       needResize = false;
     } else {
       // 转换成实际像素
-      targetWidth = (key.targetWidth * ui.window.devicePixelRatio).floor();
-      targetHeight = (key.targetHeight * ui.window.devicePixelRatio).floor();
+      targetWidth = key.targetWidth == null ? null : (key.targetWidth * ui.window.devicePixelRatio).floor();
+      targetHeight = key.targetHeight == null ? null : (key.targetHeight * ui.window.devicePixelRatio).floor();
     }
 
     if (useDiskCache) {
