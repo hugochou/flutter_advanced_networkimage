@@ -53,8 +53,8 @@ class AdvancedNetworkImage extends ImageProvider<AdvancedNetworkImage> {
   final String url;
 
   /// 修改图片显示尺寸，减少内存缓存占用
-  final int targetHeight;
-  final int targetWidth;
+  final double targetHeight;
+  final double targetWidth;
 
   /// The scale to place in the [ImageInfo] object of the image.
   final double scale;
@@ -170,8 +170,13 @@ class AdvancedNetworkImage extends ImageProvider<AdvancedNetworkImage> {
 
     // 是否需要改变显示尺寸
     var needResize = true;
-    if (key.targetWidth == null && key.targetHeight == null) {
+    int targetWidth, targetHeight;
+    if (targetWidth == null && targetHeight == null) {
       needResize = false;
+    } else {
+      // 转换成实际像素
+      targetWidth = (key.targetWidth * ui.window.devicePixelRatio).floor();
+      targetHeight = (key.targetHeight * ui.window.devicePixelRatio).floor();
     }
 
     if (useDiskCache) {
@@ -184,8 +189,8 @@ class AdvancedNetworkImage extends ImageProvider<AdvancedNetworkImage> {
 
           if (needResize) {
             // 修改图片显示尺寸，减少内存缓存占用
-            return await ui.instantiateImageCodec(_diskCache, targetHeight: this.targetHeight,
-                targetWidth: this.targetWidth);
+            return await ui.instantiateImageCodec(_diskCache, targetHeight: targetHeight,
+                targetWidth: targetWidth);
           } else {
             return await PaintingBinding.instance.instantiateImageCodec(_diskCache);
           }
@@ -212,8 +217,8 @@ class AdvancedNetworkImage extends ImageProvider<AdvancedNetworkImage> {
 
         if (needResize) {
           // 修改图片显示尺寸，减少内存缓存占用
-          return await ui.instantiateImageCodec(imageData, targetHeight: this.targetHeight,
-              targetWidth: this.targetWidth);
+          return await ui.instantiateImageCodec(imageData, targetHeight: targetHeight,
+              targetWidth: targetWidth);
         } else {
           return await PaintingBinding.instance.instantiateImageCodec(imageData);
         }
@@ -226,8 +231,8 @@ class AdvancedNetworkImage extends ImageProvider<AdvancedNetworkImage> {
 
       if (needResize) {
         // 修改图片显示尺寸，减少内存缓存占用
-        return await ui.instantiateImageCodec(imageData.buffer.asUint8List(), targetHeight: this.targetHeight,
-            targetWidth: this.targetWidth);
+        return await ui.instantiateImageCodec(imageData.buffer.asUint8List(), targetHeight: targetHeight,
+            targetWidth: targetWidth);
       } else {
         return await PaintingBinding.instance.instantiateImageCodec(imageData.buffer.asUint8List());
       }
@@ -235,8 +240,8 @@ class AdvancedNetworkImage extends ImageProvider<AdvancedNetworkImage> {
     if (key.fallbackImage != null)
       if (needResize) {
         // 修改图片显示尺寸，减少内存缓存占用
-        return await ui.instantiateImageCodec(key.fallbackImage, targetHeight: this.targetHeight,
-            targetWidth: this.targetWidth);
+        return await ui.instantiateImageCodec(key.fallbackImage, targetHeight: targetHeight,
+            targetWidth: targetWidth);
       } else {
         return await PaintingBinding.instance.instantiateImageCodec(key.fallbackImage);
       }
